@@ -11,4 +11,13 @@ export function makeClient(url: string, authToken: string) {
   return drizzle(client, { schema: schema });
 }
 
-export const db = makeClient(process.env.TURSO_URL!, process.env.TURSO_TOKEN!);
+// memoized client..... idk
+let _client: ReturnType<typeof makeClient> | undefined;
+
+export const db = () => {
+  if (!_client) {
+    _client = makeClient(process.env.TURSO_URL!, process.env.TURSO_TOKEN!);
+  }
+
+  return _client;
+};
