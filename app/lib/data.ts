@@ -11,7 +11,7 @@ import {
 import { formatCurrency } from './utils';
 import { db } from '../db/client';
 import { customers, invoices } from '../db/schema';
-import { desc, eq, sql as drz } from 'drizzle-orm';
+import { desc, eq, sql as drz, or, like } from 'drizzle-orm';
 import { unstable_noStore as noStore } from 'next/cache';
 
 export async function fetchRevenue() {
@@ -126,28 +126,54 @@ export async function fetchFilteredInvoices(
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
-    const invoices = await sql<InvoicesTable>`
-      SELECT
-        invoices.id,
-        invoices.amount,
-        invoices.date,
-        invoices.status,
-        customers.name,
-        customers.email,
-        customers.image_url
-      FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      WHERE
-        customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`} OR
-        invoices.amount::text ILIKE ${`%${query}%`} OR
-        invoices.date::text ILIKE ${`%${query}%`} OR
-        invoices.status ILIKE ${`%${query}%`}
-      ORDER BY invoices.date DESC
-      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
-    `;
+    // const invoices = await sql<InvoicesTable>`
+    //   SELECT
+    //     invoices.id,
+    //     invoices.amount,
+    //     invoices.date,
+    //     invoices.status,
+    //     customers.name,
+    //     customers.email,
+    //     customers.image_url
+    //   FROM invoices
+    //   JOIN customers ON invoices.customer_id = customers.id
+    //   WHERE
+    //     customers.name ILIKE ${`%${query}%`} OR
+    //     customers.email ILIKE ${`%${query}%`} OR
+    //     invoices.amount::text ILIKE ${`%${query}%`} OR
+    //     invoices.date::text ILIKE ${`%${query}%`} OR
+    //     invoices.status ILIKE ${`%${query}%`}
+    //   ORDER BY invoices.date DESC
+    //   LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
+    // `;
 
-    return invoices.rows;
+    // drizzly bear magic time
+    const dbInvoices = await db()
+      .select({
+        id: invoices.id,
+        amount: invoices.amount,
+        date: invoices.date,
+        status: invoices.status,
+        name: customers.name,
+        email: customers.email,
+        image_url: customers.imageUrl,
+      })
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .where(
+        or(
+          drz`${customers.name} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${customers.email} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.amount} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.date} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.status} LIKE ${`%${query}%`} COLLATE NOCASE`,
+        ),
+      )
+      .orderBy(desc(invoices.date))
+      .limit(ITEMS_PER_PAGE)
+      .offset(offset);
+
+    return dbInvoices;
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoices.');
@@ -157,18 +183,31 @@ export async function fetchFilteredInvoices(
 export async function fetchInvoicesPages(query: string) {
   noStore();
   try {
-    const count = await sql`SELECT COUNT(*)
-    FROM invoices
-    JOIN customers ON invoices.customer_id = customers.id
-    WHERE
-      customers.name ILIKE ${`%${query}%`} OR
-      customers.email ILIKE ${`%${query}%`} OR
-      invoices.amount::text ILIKE ${`%${query}%`} OR
-      invoices.date::text ILIKE ${`%${query}%`} OR
-      invoices.status ILIKE ${`%${query}%`}
-  `;
+    //   const count = await sql`SELECT COUNT(*)
+    //   FROM invoices
+    //   JOIN customers ON invoices.customer_id = customers.id
+    //   WHERE
+    //     customers.name ILIKE ${`%${query}%`} OR
+    //     customers.email ILIKE ${`%${query}%`} OR
+    //     invoices.amount::text ILIKE ${`%${query}%`} OR
+    //     invoices.date::text ILIKE ${`%${query}%`} OR
+    //     invoices.status ILIKE ${`%${query}%`}
+    // `;
+    const count = await db()
+      .select({ count: drz<number>`COUNT(*)` })
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .where(
+        or(
+          drz`${customers.name} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${customers.email} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.amount} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.date} LIKE ${`%${query}%`} COLLATE NOCASE`,
+          drz`${invoices.status} LIKE ${`%${query}%`} COLLATE NOCASE`,
+        ),
+      );
 
-    const totalPages = Math.ceil(Number(count.rows[0].count) / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(Number(count[0].count) / ITEMS_PER_PAGE);
     return totalPages;
   } catch (error) {
     console.error('Database Error:', error);
