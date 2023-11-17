@@ -9,12 +9,14 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
+    "@libsql/client": "0.4.0-pre.1",
     "@tailwindcss/forms": "^0.5.7",
     "@types/node": "20.5.7",
     "@vercel/postgres": "^0.5.0",
     "autoprefixer": "10.4.15",
     "bcrypt": "^5.1.1",
     "clsx": "^2.0.0",
+    "drizzle-orm": "^0.29.0",
     "next": "^14.0.2",
     "postcss": "8.4.31",
     "react": "18.2.0",
@@ -24,11 +26,13 @@
     "zod": "^3.22.2"
   },
   "devDependencies": {
+    "@next/env": "^14.0.3",
     "@types/bcrypt": "^5.0.1",
     "@types/react": "18.2.21",
     "@types/react-dom": "18.2.14",
     "@vercel/style-guide": "^5.0.1",
     "dotenv": "^16.3.1",
+    "drizzle-kit": "^0.20.4",
     "eslint": "^8.52.0",
     "eslint-config-next": "^14.0.0",
     "eslint-config-prettier": "9.0.0",
