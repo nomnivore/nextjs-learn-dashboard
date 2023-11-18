@@ -11,7 +11,7 @@ import {
 import { formatCurrency } from './utils';
 import { db } from '../db/client';
 import { customers, invoices } from '../db/schema';
-import { desc, eq, sql as drz, or, like } from 'drizzle-orm';
+import { desc, eq, sql as drz, or, asc } from 'drizzle-orm';
 import { unstable_noStore as noStore } from 'next/cache';
 
 export async function fetchRevenue() {
@@ -173,7 +173,7 @@ export async function fetchFilteredInvoices(
       .limit(ITEMS_PER_PAGE)
       .offset(offset);
 
-    return dbInvoices;
+    return dbInvoices as InvoicesTable[];
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch invoices.');
@@ -218,19 +218,29 @@ export async function fetchInvoicesPages(query: string) {
 export async function fetchInvoiceById(id: string) {
   noStore();
   try {
-    const data = await sql<InvoiceForm>`
-      SELECT
-        invoices.id,
-        invoices.customer_id,
-        invoices.amount,
-        invoices.status
-      FROM invoices
-      WHERE invoices.id = ${id};
-    `;
+    // const data = await sql<InvoiceForm>`
+    //   SELECT
+    //     invoices.id,
+    //     invoices.customer_id,
+    //     invoices.amount,
+    //     invoices.status
+    //   FROM invoices
+    //   WHERE invoices.id = ${id};
+    // `;
+    const data = await db()
+      .select({
+        id: invoices.id,
+        customer_id: invoices.customerId,
+        amount: invoices.amount,
+        status: invoices.status,
+      })
+      .from(invoices)
+      .where(eq(invoices.id, id));
 
-    const invoice = data.rows.map((invoice) => ({
+    const invoice = data.map((invoice) => ({
       ...invoice,
       // Convert amount from cents to dollars
+      status: invoice.status as InvoiceForm['status'],
       amount: invoice.amount / 100,
     }));
 
@@ -243,16 +253,19 @@ export async function fetchInvoiceById(id: string) {
 
 export async function fetchCustomers() {
   try {
-    const data = await sql<CustomerField>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
+    // const data = await sql<CustomerField>`
+    //   SELECT
+    //     id,
+    //     name
+    //   FROM customers
+    //   ORDER BY name ASC
+    // `;
 
-    const customers = data.rows;
-    return customers;
+    const dbCustomers = await db()
+      .select({ id: customers.id, name: customers.name })
+      .from(customers)
+      .orderBy(asc(customers.name));
+    return dbCustomers;
   } catch (err) {
     console.error('Database Error:', err);
     throw new Error('Failed to fetch all customers.');
