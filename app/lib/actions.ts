@@ -6,6 +6,7 @@ import { invoices } from '../db/schema';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
+import { signIn } from '@/auth';
 
 const FormSchema = z.object({
   id: z.string(),
@@ -96,8 +97,6 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string) {
-  throw new Error('Failed to Delete Invoice');
-
   try {
     await db().delete(invoices).where(eq(invoices.id, id));
   } catch (error) {
@@ -105,4 +104,19 @@ export async function deleteInvoice(id: string) {
   }
 
   revalidatePath('/dashboard/invoices');
+}
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  //
+  try {
+    await signIn('credentials', Object.fromEntries(formData));
+  } catch (err) {
+    if ((err as Error).message.includes('CredentialsSignin')) {
+      return 'CredentialsSignin';
+    }
+    throw err;
+  }
 }
